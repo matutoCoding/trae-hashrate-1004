@@ -1,0 +1,256 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-paper: #F5F0E6;
+  --color-paper-dark: #E8DFC7;
+  --color-ink: #2C1810;
+  --color-ink-light: #50403F;
+  --color-seal: #C83C23;
+  --color-azure: #2E4A62;
+  --color-bamboo: #6B8E23;
+  --color-warning-wood: #D4A017;
+  --color-warning-mold: #6B6B6B;
+  
+  --border-double: 2px double var(--color-paper-dark);
+  --border-thin: 1px solid var(--color-paper-dark);
+  
+  font-family: "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--color-ink);
+  background-color: var(--color-paper);
+  
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  body {
+    @apply bg-paper-100 text-ink-600 font-hei antialiased;
+    background-image: 
+      linear-gradient(90deg, rgba(212, 196, 154, 0.03) 1px, transparent 1px),
+      linear-gradient(rgba(212, 196, 154, 0.03) 1px, transparent 1px),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 20px 20px, 20px 20px, 100px 100px;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-song font-semibold text-ink-700;
+  }
+
+  h1 { @apply text-2xl; }
+  h2 { @apply text-xl; }
+  h3 { @apply text-lg; }
+  h4 { @apply text-base; }
+
+  ::selection {
+    @apply bg-seal-200 text-seal-800;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-ink-600 text-paper-50 rounded-lg border border-ink-700
+           hover:bg-ink-500 hover:shadow-scroll transition-all duration-200
+           active:scale-[0.96] active:bg-ink-700
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-paper-50 text-ink-600 rounded-lg border border-paper-300
+           hover:bg-paper-100 hover:border-paper-400 hover:shadow-scroll transition-all duration-200
+           active:scale-[0.96] active:bg-paper-200;
+  }
+
+  .btn-danger {
+    @apply px-4 py-2 bg-seal-500 text-white rounded-lg border border-seal-600
+           hover:bg-seal-400 hover:shadow-scroll transition-all duration-200
+           active:scale-[0.96] active:bg-seal-600;
+  }
+
+  .card-scroll {
+    @apply bg-paper-50 rounded-lg border border-paper-200 shadow-scroll
+           hover:shadow-scroll-hover transition-shadow duration-200;
+  }
+
+  .card-scroll-bordered {
+    @apply bg-paper-50 rounded-lg border-2 border-double border-paper-300 shadow-scroll
+           hover:shadow-scroll-hover transition-shadow duration-200;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 bg-paper-50 border border-paper-300 rounded-lg
+           text-ink-700 placeholder-paper-400
+           focus:outline-none focus:border-azure-400 focus:ring-1 focus:ring-azure-400
+           transition-all duration-200;
+  }
+
+  .input-field-select {
+    @apply w-full px-3 py-2 bg-paper-50 border border-paper-300 rounded-lg
+           text-ink-700 cursor-pointer
+           focus:outline-none focus:border-azure-400 focus:ring-1 focus:ring-azure-400
+           transition-all duration-200;
+  }
+
+  .label-text {
+    @apply block text-sm font-medium text-ink-500 mb-1;
+  }
+
+  .badge-status {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply badge-status bg-bamboo-100 text-bamboo-700 border border-bamboo-200;
+  }
+
+  .badge-warning {
+    @apply badge-status bg-amber-100 text-amber-700 border border-amber-200;
+  }
+
+  .badge-danger {
+    @apply badge-status bg-seal-100 text-seal-700 border border-seal-200;
+  }
+
+  .badge-info {
+    @apply badge-status bg-azure-100 text-azure-700 border border-azure-200;
+  }
+
+  .seal-mark {
+    @apply inline-flex items-center justify-center px-2 py-1 text-seal-600 
+           border border-seal-400 rounded bg-seal-50 font-song text-sm
+           shadow-seal;
+  }
+
+  .divider-classic {
+    @apply h-px bg-paper-300 my-4;
+    position: relative;
+  }
+
+  .divider-classic::before,
+  .divider-classic::after {
+    content: '';
+    @apply absolute h-px w-8 bg-paper-400;
+    top: 0;
+  }
+
+  .divider-classic::before {
+    left: 0;
+  }
+
+  .divider-classic::after {
+    right: 0;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-paper-100 rounded;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-paper-300 rounded hover:bg-paper-400 transition-colors;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-breathe {
+    animation: breathe 2s ease-in-out infinite;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes breathe {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+}
+
+@layer utilities {
+  .content-auto {
+    content-visibility: auto;
+  }
+
+  .text-shadow-classic {
+    text-shadow: 1px 1px 2px rgba(44, 24, 16, 0.1);
+  }
+
+  .paper-texture {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  }
+
+  .rice-grid {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cpath d='M0 20h40M20 0v40M0 0l40 40M40 0L0 40' stroke='%23D4C49A' stroke-width='0.3' fill='none' opacity='0.3'/%3E%3C/svg%3E");
+  }
+
+  .border-double-classic {
+    border: 2px double;
+    @apply border-paper-300;
+  }
+}
+
+input[type="range"] {
+  @apply w-full h-2 bg-paper-200 rounded-lg appearance-none cursor-pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  @apply appearance-none w-4 h-4 bg-ink-500 rounded-full border-2 border-paper-50
+         shadow-md cursor-pointer hover:bg-ink-400 transition-colors;
+}
+
+input[type="range"]::-moz-range-thumb {
+  @apply w-4 h-4 bg-ink-500 rounded-full border-2 border-paper-50
+         shadow-md cursor-pointer hover:bg-ink-400 transition-colors;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.pulse-ring::before {
+  content: '';
+  @apply absolute inset-0 rounded-full border-2 border-seal-400;
+  animation: pulse-ring 1.5s ease-out infinite;
+}

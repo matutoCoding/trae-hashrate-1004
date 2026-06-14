@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   BookOpen,
   FileText,
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store';
+import { exportToFile, getStorageStats } from '@/utils/storage';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -124,6 +125,7 @@ export const Dashboard: React.FC = () => {
     pages,
     paperStocks,
     restorationRecords,
+    damageAreas,
     getStatistics,
     getPageById,
     getBookById,
@@ -133,6 +135,11 @@ export const Dashboard: React.FC = () => {
   } = useAppStore();
 
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [backupToast, setBackupToast] = useState<{ show: boolean; success: boolean; message: string }>({
+    show: false,
+    success: false,
+    message: '',
+  });
 
   useEffect(() => {
     if (!isInitialized) {
@@ -180,13 +187,40 @@ export const Dashboard: React.FC = () => {
     return `${date.getMonth() + 1}月${date.getDate()}日`;
   };
 
+  const handleBackup = useCallback(() => {
+    try {
+      const stats = getStorageStats();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `古籍修复数据备份-${timestamp}.json`;
+      
+      exportToFile(filename);
+      
+      setBackupToast({
+        show: true,
+        success: true,
+        message: `数据备份成功！共 ${books.length} 本书籍、${pages.length} 页书页、${paperStocks.length} 种补纸、${restorationRecords.length} 条修复记录、${damageAreas.length} 处破损标注，总计 ${(stats.totalSize / 1024).toFixed(2)} KB`,
+      });
+    } catch (error) {
+      console.error('备份失败:', error);
+      setBackupToast({
+        show: true,
+        success: false,
+        message: '数据备份失败，请检查浏览器存储权限',
+      });
+    }
+
+    setTimeout(() => {
+      setBackupToast(prev => ({ ...prev, show: false }));
+    }, 6000);
+  }, [books.length, pages.length, paperStocks.length, restorationRecords.length, damageAreas.length]);
+
   const quickActions = [
-    { icon: <ScanLine size={24} />, title: '书页采集', description: '扫描并录入古籍书页', path: '/capture' },
-    { icon: <Search size={24} />, title: '配纸检索', description: '智能匹配最优补纸', path: '/search' },
-    { icon: <Highlighter size={24} />, title: '破损标注', description: '标注书页破损区域', path: '/annotation' },
-    { icon: <FileText size={24} />, title: '修复档案', description: '查看和管理修复记录', path: '/archive' },
-    { icon: <Library size={24} />, title: '纸库管理', description: '管理补纸库存', path: '/library' },
-    { icon: <Database size={24} />, title: '数据备份', description: '导出和备份数据', path: '/backup' },
+    { icon: <ScanLine size={24} />, title: '书页采集', description: '扫描并录入古籍书页', path: '/capture', action: null },
+    { icon: <Search size={24} />, title: '配纸检索', description: '智能匹配最优补纸', path: '/search', action: null },
+    { icon: <Highlighter size={24} />, title: '破损标注', description: '标注书页破损区域', path: '/annotation', action: null },
+    { icon: <FileText size={24} />, title: '修复档案', description: '查看和管理修复记录', path: '/archive', action: null },
+    { icon: <Library size={24} />, title: '纸库管理', description: '管理补纸库存', path: '/library', action: null },
+    { icon: <Database size={24} />, title: '数据备份', description: '导出和备份数据', path: null, action: handleBackup },
   ];
 
   return (
@@ -255,11 +289,17 @@ export const Dashboard: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {quickActions.map((action, index) => (
               <QuickAction
-                key={action.path}
+                key={action.title}
                 icon={action.icon}
                 title={action.title}
                 description={action.description}
-                onClick={() => navigate(action.path)}
+                onClick={() => {
+                  if (action.action) {
+                    action.action();
+                  } else if (action.path) {
+                    navigate(action.path);
+                  }
+                }}
                 delay={index * 50}
               />
             ))}
@@ -474,6 +514,81 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {backupToast.show && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+          <div
+            className={cn(
+              'flex items-start gap-3 p-4 rounded-lg shadow-scroll-hover max-w-md border',
+              backupToast.success
+                ? 'bg-bamboo-50 border-bamboo-300'
+                : 'bg-seal-50 border-seal-300'
+            )}
+          >
+            <div
+              className={cn(
+                'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
+                backupToast.success ? 'bg-bamboo-100' : 'bg-seal-100'
+              )}
+            >
+              <svg
+                className={cn(
+                  'w-5 h-5',
+                  backupToast.success ? 'text-bamboo-600' : 'text-seal-600'
+                )}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                {backupToast.success ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                )}
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div
+                className={cn(
+                  'font-medium text-sm',
+                  backupToast.success ? 'text-bamboo-800' : 'text-seal-800'
+                )}
+              >
+                {backupToast.success ? '数据备份成功' : '数据备份失败'}
+              </div>
+              <div
+                className={cn(
+                  'text-xs mt-1',
+                  backupToast.success ? 'text-bamboo-600' : 'text-seal-600'
+                )}
+              >
+                {backupToast.message}
+              </div>
+            </div>
+            <button
+              onClick={() => setBackupToast(prev => ({ ...prev, show: false }))}
+              className={cn(
+                'p-1 rounded hover:bg-black/5 transition-colors',
+                backupToast.success ? 'text-bamboo-600' : 'text-seal-600'
+              )}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

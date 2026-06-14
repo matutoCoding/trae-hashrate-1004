@@ -29,6 +29,7 @@ interface AnnotationCanvasProps {
   backgroundImage?: string;
   damageType?: DamageType;
   onChange?: (areas: AnnotationArea[]) => void;
+  onSelectArea?: (areaId: string | null) => void;
   onExport?: (areas: AnnotationArea[]) => void;
   defaultAreas?: AnnotationArea[];
   pageId?: string;
@@ -51,6 +52,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
   backgroundImage,
   damageType = '虫蛀',
   onChange,
+  onSelectArea,
   onExport,
   defaultAreas = [],
   pageId = '',
@@ -487,7 +489,12 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = ({
     setAreas(defaultAreas);
     setHistory([defaultAreas]);
     setHistoryIndex(0);
+    setSelectedAreaId(null);
   }, [defaultAreas]);
+
+  useEffect(() => {
+    onSelectArea?.(selectedAreaId);
+  }, [selectedAreaId, onSelectArea]);
 
   const selectedArea = areas.find(a => a.id === selectedAreaId);
 

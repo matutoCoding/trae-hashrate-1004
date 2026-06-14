@@ -479,6 +479,8 @@ ${annotations.map((a, i) => {
             damageType={damageType}
             defaultAreas={annotations}
             pageId={currentPage?.id}
+            onChange={handleAnnotationsChange}
+            onSelectArea={setSelectedAreaId}
           />
         </div>
 

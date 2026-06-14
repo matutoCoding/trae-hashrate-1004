@@ -47,10 +47,11 @@ interface AppState {
   updatePage: (id: string, updates: Partial<BookPage>) => void;
   deletePage: (id: string) => void;
 
-  addDamageArea: (area: Omit<DamageArea, 'id'>) => DamageArea;
+  addDamageArea: (area: Omit<DamageArea, 'id'> & { id?: string }) => DamageArea;
   updateDamageArea: (id: string, updates: Partial<DamageArea>) => void;
   deleteDamageArea: (id: string) => void;
   getDamageAreasByPage: (pageId: string) => DamageArea[];
+  replaceDamageAreasForPage: (pageId: string, areas: DamageArea[]) => void;
 
   addPaperStock: (stock: Omit<PaperStock, 'id'>) => PaperStock;
   updatePaperStock: (id: string, updates: Partial<PaperStock>) => void;
@@ -155,7 +156,7 @@ export const useAppStore = create<AppState>()(
       addDamageArea: (area) => {
         const newArea: DamageArea = {
           ...area,
-          id: generateId(),
+          id: area.id || generateId(),
         };
         set((state) => ({ damageAreas: [...state.damageAreas, newArea] }));
         return newArea;
@@ -172,6 +173,13 @@ export const useAppStore = create<AppState>()(
         })),
       getDamageAreasByPage: (pageId) =>
         get().damageAreas.filter((d) => d.pageId === pageId),
+      replaceDamageAreasForPage: (pageId, areas) =>
+        set((state) => ({
+          damageAreas: [
+            ...state.damageAreas.filter((d) => d.pageId !== pageId),
+            ...areas,
+          ],
+        })),
 
       addPaperStock: (stock) => {
         const newStock: PaperStock = {

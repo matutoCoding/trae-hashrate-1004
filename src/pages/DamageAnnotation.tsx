@@ -102,6 +102,7 @@ export const DamageAnnotation: React.FC = () => {
     addDamageArea,
     updateDamageArea,
     deleteDamageArea,
+    replaceDamageAreasForPage,
     getDamageAreasByPage,
     getPageById,
     getBookById,
@@ -115,12 +116,17 @@ export const DamageAnnotation: React.FC = () => {
   const [damageType, setDamageType] = useState<DamageType>('虫蛀');
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedPaperId, setSelectedPaperId] = useState<string | null>(null);
+  // 注意：配纸选择直接从store中当前选中的DamageArea读取，不再用独立局部状态
 
   const currentPage = getPageById(selectedPageId);
   const currentBook = currentPage ? getBookById(currentPage.bookId) : null;
   const pageDamageAreas = currentPage ? getDamageAreasByPage(currentPage.id) : [];
-  const selectedPaper = selectedPaperId ? getPaperById(selectedPaperId) : null;
+  const selectedDamageArea = useMemo(() => {
+    return selectedAreaId ? damageAreas.find(d => d.id === selectedAreaId) : null;
+  }, [damageAreas, selectedAreaId]);
+  const selectedPaper = selectedDamageArea?.patchPaperId
+    ? getPaperById(selectedDamageArea.patchPaperId)
+    : null;
 
   const [annotations, setAnnotations] = useState<AnnotationArea[]>([]);
   const [history, setHistory] = useState<AnnotationArea[][]>([[]]);
@@ -144,10 +150,6 @@ export const DamageAnnotation: React.FC = () => {
   const selectedArea = useMemo(() => {
     return annotations.find(a => a.id === selectedAreaId) || null;
   }, [annotations, selectedAreaId]);
-
-  const selectedDamageArea = useMemo(() => {
-    return selectedAreaId ? damageAreas.find(d => d.id === selectedAreaId) : null;
-  }, [damageAreas, selectedAreaId]);
 
   const pushHistory = useCallback((newAnnotations: AnnotationArea[]) => {
     const newHistory = history.slice(0, historyIndex + 1);
@@ -204,42 +206,42 @@ export const DamageAnnotation: React.FC = () => {
     setIsSaving(true);
 
     try {
-      const existingIds = pageDamageAreas.map(d => d.id);
+      // 构建新的 DamageArea 列表，保留已有区域的额外字段（如配纸、备注）
+      const existingMap = new Map<string, DamageArea>();
+      pageDamageAreas.forEach(area => existingMap.set(area.id, area));
 
-      for (const annotation of annotations) {
+      const newAreas: DamageArea[] = annotations.map(annotation => {
         const lapWidth = calculateLapWidth(annotation.area);
         const twistDirection = suggestTwistDirection(annotation.area);
+        const existing = existingMap.get(annotation.id);
 
-        if (existingIds.includes(annotation.id)) {
-          updateDamageArea(annotation.id, {
-            type: annotation.type,
-            polygonPoints: annotation.points,
-            area: annotation.area,
-            lapWidth,
-            twistDirection,
-          });
-        } else {
-          addDamageArea({
-            pageId: currentPage.id,
-            type: annotation.type,
-            polygonPoints: annotation.points,
-            area: annotation.area,
-            lapWidth,
-            twistDirection,
-            patchPaperId: null,
-            notes: '',
-          });
-        }
-      }
+        return {
+          // 保留已保存的额外属性，否则使用新生成的默认值
+          id: existing?.id || annotation.id,
+          pageId: currentPage.id,
+          type: annotation.type,
+          polygonPoints: annotation.points,
+          area: annotation.area,
+          lapWidth: existing?.lapWidth ?? lapWidth,
+          twistDirection: existing?.twistDirection ?? twistDirection,
+          patchPaperId: existing?.patchPaperId ?? null,
+          notes: existing?.notes ?? '',
+        };
+      });
 
-      for (const existingId of existingIds) {
-        if (!annotations.some(a => a.id === existingId)) {
-          deleteDamageArea(existingId);
-        }
-      }
+      // 一次性整体替换该页的所有标注，避免重复
+      replaceDamageAreasForPage(currentPage.id, newAreas);
+
+      // 同步更新本地annotations状态中的ID，保持与store一致
+      const idUpdated = newAreas.map((area, idx) => ({
+        ...annotations[idx],
+        id: area.id,
+      }));
+      setAnnotations(idUpdated);
+      pushHistory(idUpdated);
 
       updatePage(currentPage.id, { status: '待修复' });
-      alert('标注已保存，页面状态更新为"待修复"');
+      alert(`标注已保存，共 ${newAreas.length} 处破损，页面状态更新为"待修复"`);
     } catch (error) {
       console.error('保存失败:', error);
       alert('保存失败，请重试');
@@ -642,22 +644,28 @@ ${annotations.map((a, i) => {
                   {/* 配纸选择 */}
                   <div>
                     <label className="block text-sm font-medium text-ink-500 mb-2">
-                      选用配纸
+                      选用配纸（该破损区域单独配置）
                     </label>
                     <Select
                       placeholder="选择配纸"
-                      value={selectedPaperId || ''}
+                      value={selectedDamageArea?.patchPaperId || ''}
                       onChange={(e) => {
-                        setSelectedPaperId(e.target.value);
-                        if (selectedAreaId && e.target.value) {
-                          updateDamageArea(selectedAreaId, { patchPaperId: e.target.value });
+                        if (selectedAreaId) {
+                          const paperId = e.target.value || null;
+                          updateDamageArea(selectedAreaId, { patchPaperId: paperId });
                         }
                       }}
                       options={paperStocks.map(p => ({
                         value: p.id,
-                        label: `${p.batchNumber} - 库存${p.stockQuantity}${p.unit}`,
+                        label: `${p.batchNumber} - 帘${p.curtainPatternSpacing}mm · 厚${p.thickness}μm - 库存${p.stockQuantity}${p.unit}`,
                       }))}
                     />
+                    {selectedDamageArea?.patchPaperId && selectedPaper && (
+                      <div className="mt-2 p-2 bg-bamboo-50 border border-bamboo-200 rounded text-xs text-bamboo-700 flex items-center gap-2">
+                        <CheckCircle size={14} />
+                        已选用：{selectedPaper.batchNumber} · {selectedPaper.fiberComposition}
+                      </div>
+                    )}
                   </div>
 
                   {/* 酸碱度校验 */}

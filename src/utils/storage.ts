@@ -22,6 +22,11 @@ export const STORAGE_KEYS = {
 } as const;
 
 /**
+ * Zustand persist 中间件存储的键名
+ */
+export const ZUSTAND_STORAGE_KEY = 'guji-restoration-store';
+
+/**
  * 当前数据版本号
  */
 export const DATA_VERSION = '1.0.0';
@@ -129,16 +134,43 @@ export function clearAllStorage(): boolean {
 }
 
 /**
- * 导出所有数据
+ * 从 Zustand 存储中读取真实数据（优先使用）
+ */
+function readFromZustandStore(): Partial<ExportData> | null {
+  try {
+    const raw = localStorage.getItem(ZUSTAND_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const state = parsed?.state || parsed;
+    if (!state || typeof state !== 'object') return null;
+
+    return {
+      books: Array.isArray(state.books) ? state.books : undefined,
+      pages: Array.isArray(state.pages) ? state.pages : undefined,
+      damageAreas: Array.isArray(state.damageAreas) ? state.damageAreas : undefined,
+      paperCategories: Array.isArray(state.paperCategories) ? state.paperCategories : undefined,
+      paperStock: Array.isArray(state.paperStocks) ? state.paperStocks : undefined,
+      restorationRecords: Array.isArray(state.restorationRecords) ? state.restorationRecords : undefined,
+    };
+  } catch (e) {
+    console.warn('从Zustand存储读取失败，回退到独立键:', e);
+    return null;
+  }
+}
+
+/**
+ * 导出所有数据（优先从Zustand存储读取，保证拿到页面最新状态）
  * @returns 完整的导出数据对象
  */
 export function exportAllData(): ExportData {
-  const books = loadFromStorage<Book[]>(STORAGE_KEYS.BOOKS, []) ?? [];
-  const pages = loadFromStorage<BookPage[]>(STORAGE_KEYS.PAGES, []) ?? [];
-  const damageAreas = loadFromStorage<DamageArea[]>(STORAGE_KEYS.DAMAGE_AREAS, []) ?? [];
-  const paperCategories = loadFromStorage<PaperCategory[]>(STORAGE_KEYS.PAPER_CATEGORIES, []) ?? [];
-  const paperStock = loadFromStorage<PaperStock[]>(STORAGE_KEYS.PAPER_STOCK, []) ?? [];
-  const restorationRecords = loadFromStorage<RestorationRecord[]>(STORAGE_KEYS.RESTORATION_RECORDS, []) ?? [];
+  const zustandData = readFromZustandStore();
+
+  const books = zustandData?.books ?? loadFromStorage<Book[]>(STORAGE_KEYS.BOOKS, []) ?? [];
+  const pages = zustandData?.pages ?? loadFromStorage<BookPage[]>(STORAGE_KEYS.PAGES, []) ?? [];
+  const damageAreas = zustandData?.damageAreas ?? loadFromStorage<DamageArea[]>(STORAGE_KEYS.DAMAGE_AREAS, []) ?? [];
+  const paperCategories = zustandData?.paperCategories ?? loadFromStorage<PaperCategory[]>(STORAGE_KEYS.PAPER_CATEGORIES, []) ?? [];
+  const paperStock = zustandData?.paperStock ?? loadFromStorage<PaperStock[]>(STORAGE_KEYS.PAPER_STOCK, []) ?? [];
+  const restorationRecords = zustandData?.restorationRecords ?? loadFromStorage<RestorationRecord[]>(STORAGE_KEYS.RESTORATION_RECORDS, []) ?? [];
 
   return {
     books,
@@ -184,6 +216,33 @@ export function exportToFile(filename: string = 'ancient-book-restoration-data.j
 }
 
 /**
+ * 同步写入 Zustand 存储，确保页面下次加载时正确恢复
+ */
+function syncToZustandStore(data: Omit<ExportData, 'exportedAt' | 'version'>): void {
+  try {
+    const existing = localStorage.getItem(ZUSTAND_STORAGE_KEY);
+    let base: Record<string, unknown> = { state: {}, version: 0 };
+    if (existing) {
+      const parsed = JSON.parse(existing);
+      base = typeof parsed === 'object' && parsed ? parsed : base;
+    }
+    const prevState = base.state && typeof base.state === 'object' ? base.state : {};
+    const newState: Record<string, unknown> = { ...prevState };
+    if (data.books) newState.books = data.books;
+    if (data.pages) newState.pages = data.pages;
+    if (data.damageAreas) newState.damageAreas = data.damageAreas;
+    if (data.paperCategories) newState.paperCategories = data.paperCategories;
+    if (data.paperStock) newState.paperStocks = data.paperStock;
+    if (data.restorationRecords) newState.restorationRecords = data.restorationRecords;
+    newState.isInitialized = true;
+    base.state = newState;
+    localStorage.setItem(ZUSTAND_STORAGE_KEY, JSON.stringify(base));
+  } catch (e) {
+    console.warn('同步到Zustand存储失败:', e);
+  }
+}
+
+/**
  * 导入所有数据
  * @param data - 要导入的数据对象
  * @param merge - 是否与现有数据合并，默认为false（覆盖）
@@ -195,22 +254,38 @@ export function importAllData(data: ExportData, merge: boolean = false): boolean
       throw new Error('无效的导入数据格式');
     }
 
-    const saveData = <T>(key: StorageKey, newData: T[], mergeFlag: boolean): void => {
+    const saveData = <T>(key: StorageKey, newData: T[], mergeFlag: boolean): T[] => {
       if (mergeFlag) {
         const existingData = loadFromStorage<T[]>(key, []) ?? [];
-        const mergedData = [...existingData, ...newData];
+        const idMap = new Map<string, T>();
+        const getId = (item: unknown): string => String((item as { id?: string }).id || Math.random());
+        existingData.forEach(it => idMap.set(getId(it), it));
+        newData.forEach(it => idMap.set(getId(it), it));
+        const mergedData = Array.from(idMap.values());
         saveToStorage(key, mergedData);
+        return mergedData;
       } else {
         saveToStorage(key, newData);
+        return newData;
       }
     };
 
-    saveData(STORAGE_KEYS.BOOKS, data.books || [], merge);
-    saveData(STORAGE_KEYS.PAGES, data.pages || [], merge);
-    saveData(STORAGE_KEYS.DAMAGE_AREAS, data.damageAreas || [], merge);
-    saveData(STORAGE_KEYS.PAPER_CATEGORIES, data.paperCategories || [], merge);
-    saveData(STORAGE_KEYS.PAPER_STOCK, data.paperStock || [], merge);
-    saveData(STORAGE_KEYS.RESTORATION_RECORDS, data.restorationRecords || [], merge);
+    const books = saveData(STORAGE_KEYS.BOOKS, data.books || [], merge);
+    const pages = saveData(STORAGE_KEYS.PAGES, data.pages || [], merge);
+    const damageAreas = saveData(STORAGE_KEYS.DAMAGE_AREAS, data.damageAreas || [], merge);
+    const paperCategories = saveData(STORAGE_KEYS.PAPER_CATEGORIES, data.paperCategories || [], merge);
+    const paperStock = saveData(STORAGE_KEYS.PAPER_STOCK, data.paperStock || [], merge);
+    const restorationRecords = saveData(STORAGE_KEYS.RESTORATION_RECORDS, data.restorationRecords || [], merge);
+
+    // 同步写入Zustand存储，确保下次加载正确生效
+    syncToZustandStore({
+      books,
+      pages,
+      damageAreas,
+      paperCategories,
+      paperStock,
+      restorationRecords,
+    });
 
     return true;
   } catch (e) {
